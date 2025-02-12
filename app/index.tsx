@@ -1,12 +1,14 @@
 import axios from "axios";
 import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, View, Image } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 export default function App() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(false);
   const [doctorData, setDoctorData] = useState(null);
+  const [hospitalDetails, setHospitalDetails] = useState(null);
 
   useEffect(() => {
     const generateDeviceId = () => {
@@ -18,26 +20,22 @@ export default function App() {
     };
     const getDeviceId = async () => {
       try {
-        const id = generateDeviceId();
+        let result = await SecureStore.getItemAsync("deviceId");
+        let hospital = await SecureStore.getItemAsync("hospitalDetails");
+        if (hospital) setHospitalDetails(JSON.parse(hospital));
+        const id = result || generateDeviceId();
+        if (!result) await SecureStore.setItemAsync("deviceId", id);
         setDeviceId(id);
-        fetchData(id);
+        fetchData("ABCD001" || id);
         //Send device ID to backend here (e.g., using fetch or axios)
       } catch (e) {}
     };
     getDeviceId();
-    // setTimeout(() => {
-    //   setConnected(true);
-    //   setTimeout(() => {
-    //     setDoctorData(null);
-    //     setTimeout(() => {
-    //       setError(true);
-    //     }, 5000);
-    //   }, 5000);
-    // }, 5000);
   }, []);
 
   const fetchData = async (deviceId) => {
     try {
+      let hospital = await SecureStore.getItemAsync("hospitalDetails");
       const response = await axios.get(
         `http://64.227.148.163:81/api/ScreenSchedule/GetScheduleDetailByDevice?deviceCode=${deviceId}`,
         {
@@ -67,8 +65,24 @@ export default function App() {
         }
       }
       const data = await response.data;
+      if (
+        !hospital ||
+        (data?.hospitalName && data.hospitalName !== hospital?.hospitalName)
+      ) {
+        await SecureStore.setItemAsync(
+          "hospitalDetails",
+          JSON.stringify({
+            helpEmail: data?.helpEmail,
+            helpPhone: data?.helpPhone,
+            hospitalName: data?.hospitalName,
+            bgColour: data?.bgColour,
+            hospitalWebSite: data?.hospitalWebSite,
+            roomName: data?.roomName,
+          })
+        );
+      }
       setDoctorData(data);
-      setError(null);
+      setError(false);
     } catch (err) {
       setError(err);
     }
@@ -95,7 +109,7 @@ export default function App() {
             { position: "absolute", top: 40, left: 40 },
           ]}
         >
-          DRFK Turkish International DSC
+          {hospitalDetails?.hospitalName}
         </Text>
         <Text style={styles.optTitle}>Enter code</Text>
         <Text style={styles.optSubtitle}>
@@ -121,7 +135,7 @@ export default function App() {
             { position: "absolute", top: 40, left: 40 },
           ]}
         >
-          DRFK Turkish International DSC
+          {hospitalDetails?.hospitalName}
         </Text>
         <Text style={styles.optTitle}>Internal Server Error</Text>
         <Text
@@ -142,7 +156,9 @@ export default function App() {
             color: "#fff",
           }}
         >
-          Email: service@abcd.com | Phone: +971-50-1234567
+          {`Email: ${hospitalDetails?.helpEmail || ""} | Phone: ${
+            hospitalDetails?.helpPhone || ""
+          }`}
         </Text>
       </View>
     );
@@ -157,7 +173,7 @@ export default function App() {
             { position: "absolute", top: 40, left: 40 },
           ]}
         >
-          DRFK Turkish International DSC
+          {hospitalDetails?.hospitalName}
         </Text>
         <Text style={styles.optTitle}>Screen is empty</Text>
       </View>
@@ -168,7 +184,7 @@ export default function App() {
       <View
         style={[
           styles.leftSection,
-          { backgroundColor: doctorData?.bgColor || "#0090FF" },
+          { backgroundColor: hospitalDetails?.bgColor || "#0090FF" },
         ]}
       >
         <Image
@@ -181,11 +197,13 @@ export default function App() {
             flexDirection: "column",
             justifyContent: "space-between",
             padding: 40,
-            paddingRight: 80,
+            paddingRight: 60,
           }}
         >
           <View style={{}}>
-            <Text style={styles.lightText}>DRFK Turkish International DSC</Text>
+            <Text style={styles.lightText}>
+              {hospitalDetails?.hospitalName}
+            </Text>
           </View>
           <View style={{}}>
             <Text
@@ -200,7 +218,7 @@ export default function App() {
               {doctorData.doctorName}
             </Text>
             <Text style={[styles.lightText, { paddingBottom: 20 }]}>
-              {doctorData.department || "// Orthopedic Specialist"}
+              {doctorData.department}
             </Text>
             <View
               style={{
@@ -238,7 +256,7 @@ export default function App() {
                   fontSize: 24,
                 }}
               >
-                {doctorData.timings || "// 10:00 AM - 12:30 PM"}
+                {doctorData.timing}
               </Text>
             </View>
             <Text
@@ -250,7 +268,7 @@ export default function App() {
                 letterSpacing: 0.5,
               }}
             >
-              www.drfkinternational.com
+              {hospitalDetails.hospitalWebSite}
             </Text>
           </View>
         </View>
