@@ -16,6 +16,18 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
     npx expo start
    ```
 
+3. Release apk internally
+
+   ```bash
+    eas build --profile preview --platform android
+   ```
+
+4. Build apk internally
+
+   ```bash
+    eas build --profile development --platform android
+   ```
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
