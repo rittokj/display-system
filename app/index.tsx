@@ -1,14 +1,19 @@
 import axios from 'axios';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
+const headers = {
+	'Content-Type': 'application/json',
+	'X-Api-Key': process.env.EXPO_PUBLIC_API_KEY,
+};
 export default function App() {
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [connected, setConnected] = useState(false);
 	const [error, setError] = useState(false);
 	const [doctorData, setDoctorData] = useState(null);
 	const [hospitalDetails, setHospitalDetails] = useState(null);
+	const deviceIdRef = useRef(null);
 
 	useEffect(() => {
 		const generateDeviceId = () => {
@@ -26,27 +31,20 @@ export default function App() {
 				const id = result || generateDeviceId();
 				if (!result) await SecureStore.setItemAsync('deviceId', id);
 				setDeviceId(id);
-				// fetchData("ABCD001"  );
-				fetchData(id);
+				deviceIdRef.current = id;
+				fetchData();
 				//Send device ID to backend here (e.g., using fetch or axios)
 			} catch (e) {}
 		};
 		getDeviceId();
 	}, []);
 
-	const fetchData = async (deviceId) => {
+	const fetchData = async () => {
 		try {
+			let dId = deviceIdRef.current;
 			let hospital = await SecureStore.getItemAsync('hospitalDetails');
-			const response = await axios.get(
-				`http://64.227.148.163:81/api/ScreenSchedule/GetScheduleDetailByDevice?deviceCode=${deviceId}`,
-				{
-					headers: {
-						'Content-Type': 'application/json',
-						'X-Api-Key': '12345ABCDE67890FGHIJ',
-					},
-				}
-			); // Replace with your API endpoint
-
+			const url = `${process.env.EXPO_PUBLIC_BASE_URL}${dId}`;
+			const response = await axios.get(url, { headers }); // Replace with your API endpoint
 			if (response.status !== 200) {
 				setError(true);
 				throw new Error(`HTTP error! status: ${response.status}`);
