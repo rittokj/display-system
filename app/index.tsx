@@ -7,14 +7,43 @@ const headers = {
 	'Content-Type': 'application/json',
 	'X-Api-Key': process.env.EXPO_PUBLIC_API_KEY,
 };
+
+const isCurrentTimeBetween = (fromTime: string, toTime: string) => {
+	// Get the current date and time
+	const now = new Date();
+	// Split the time strings into hours, minutes, and seconds
+	const [fromHour, fromMinute, fromSecond] = fromTime.split(':').map(Number);
+	const [toHour, toMinute, toSecond] = toTime.split(':').map(Number);
+	// Create Date objects for the fromTime and toTime
+	const fromDateTime = new Date();
+	fromDateTime.setHours(fromHour, fromMinute, fromSecond, 0);
+	const toDateTime = new Date();
+	toDateTime.setHours(toHour, toMinute, toSecond, 0);
+	// Check if current time is between the fromTime and toTime
+	return now >= fromDateTime && now <= toDateTime;
+};
+
+const getCurrentTimeSpan = () => {
+	const now = new Date();
+	const uaeTime = new Intl.DateTimeFormat('en-US', {
+		hour12: false,
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		timeZone: 'Asia/Dubai', // UAE Timezone
+	}).format(now);
+	// Set seconds to 00
+	return uaeTime.substring(0, 5) + ':00'; // "HH:mm:ss"
+};
+
 export default function App() {
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [connected, setConnected] = useState(false);
+	const [defaultScreen, setDefaultScreen] = useState(false);
 	const [error, setError] = useState(false);
 	const [doctorData, setDoctorData] = useState(null);
 	const [hospitalDetails, setHospitalDetails] = useState(null);
 	const deviceIdRef = useRef(null);
-
 	useEffect(() => {
 		const generateDeviceId = () => {
 			// Generate random 8 digit number
@@ -43,31 +72,42 @@ export default function App() {
 		try {
 			let dId = deviceIdRef.current;
 			let hospital = await SecureStore.getItemAsync('hospitalDetails');
-			const url = `${process.env.EXPO_PUBLIC_BASE_URL}${dId}`;
-			const response = await axios.get(url, { headers }); // Replace with your API endpoint
-			if (response.status !== 200) {
+			const url = `${
+				process.env.EXPO_PUBLIC_BASE_URL
+			}?deviceCode=${dId}&currentTime=${getCurrentTimeSpan()}`;
+			const { data, status } = await axios.get(url, { headers }); // Replace with your API endpoint
+			if (status !== 200) {
 				setError(true);
-				throw new Error(`HTTP error! status: ${response.status}`);
+				throw new Error(`HTTP error! status: ${status}`);
 			} else {
-				if (response.data.scheduleStatus === 1) setConnected(true);
-				else if (response.data.scheduleStatus === 2) {
+				if (data.scheduleStatus === 1) {
+					if (
+						data?.fromTime &&
+						data?.toTime &&
+						isCurrentTimeBetween(data?.fromTime, data?.toTime)
+					) {
+						setConnected(true);
+						setDefaultScreen(false);
+					} else {
+						setDefaultScreen(true);
+					}
+				} else if (data.scheduleStatus === 2) {
 					setConnected(false);
 					setDoctorData(null);
-				} else if (response.data.scheduleStatus === 3) {
+					setDefaultScreen(false);
+				} else if (data.scheduleStatus === 3) {
 					setConnected(false);
 					setDoctorData(null);
+					setDefaultScreen(true);
 					setError(true);
-				} else if (response.data.scheduleStatus === 4) {
+				} else if (data.scheduleStatus === 4) {
 					setConnected(false);
+					setDefaultScreen(false);
 					setDoctorData(null);
 					setError(true);
 				}
 			}
-			const data = await response.data;
-			if (
-				!hospital ||
-				(data?.hospitalName && data.hospitalName !== hospital?.hospitalName)
-			) {
+			if (!hospital || JSON.stringify(data) !== JSON.stringify(hospital)) {
 				await SecureStore.setItemAsync(
 					'hospitalDetails',
 					JSON.stringify({
@@ -79,8 +119,8 @@ export default function App() {
 						roomName: data?.roomName,
 					})
 				);
+				setDoctorData(data);
 			}
-			setDoctorData(data);
 			setError(false);
 		} catch (err) {
 			setError(err);
@@ -88,16 +128,22 @@ export default function App() {
 	};
 
 	useEffect(() => {
-		if (connected) {
+		if (deviceId) {
 			let intervalId;
-			if (doctorData?.doctorName) {
-				intervalId = setInterval(fetchData, 5 * 60 * 1000); // Refresh every 5 minutes
-			} else {
-				intervalId = setInterval(fetchData, 1 * 60 * 1000); // Retry every 1 minute if no data
-			}
+			intervalId = setInterval(fetchData, 1 * 60 * 1000); // Retry every 1 minute if no data
 			return () => clearInterval(intervalId); // Clear interval on unmount
 		}
-	}, [connected, doctorData?.doctorName]);
+	}, [deviceId]);
+
+	if (defaultScreen) {
+		return (
+			<View style={styles.defaultImageContainer}>
+				<Image
+					source={require('../assets/images/default.jpeg')}
+					style={styles.defaultImage}></Image>
+			</View>
+		);
+	}
 
 	if (!connected) {
 		return (
@@ -180,7 +226,7 @@ export default function App() {
 			<View
 				style={[
 					styles.leftSection,
-					{ backgroundColor: hospitalDetails?.bgColor || '#0090FF' },
+					{ backgroundColor: doctorData?.bgColor || '#0090FF' },
 				]}>
 				<Image
 					source={require('../assets/images/line.png')}
@@ -193,12 +239,12 @@ export default function App() {
 						padding: 40,
 						paddingRight: 60,
 					}}>
-					<View style={{}}>
+					<View>
 						<Text style={styles.lightText}>
 							{hospitalDetails?.hospitalName}
 						</Text>
 					</View>
-					<View style={{}}>
+					<View>
 						<Text
 							style={{
 								fontSize: 48,
@@ -299,6 +345,16 @@ const styles = StyleSheet.create({
 		width: '100%',
 		height: '100%',
 		resizeMode: 'cover',
+	},
+	defaultImageContainer: {
+		flex: 1,
+		flexDirection: 'row',
+		backgroundColor: '#000',
+	},
+	defaultImage: {
+		width: '100%',
+		height: '100%',
+		resizeMode: 'contain',
 	},
 	unoccupiedContainer: {
 		flex: 1,
