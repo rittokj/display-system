@@ -2,6 +2,7 @@ import axios from 'axios';
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import moment from 'moment-timezone';
 
 const headers = {
 	'Content-Type': 'application/json',
@@ -24,16 +25,7 @@ const isCurrentTimeBetween = (fromTime: string, toTime: string) => {
 };
 
 const getCurrentTimeSpan = () => {
-	const now = new Date();
-	const uaeTime = new Intl.DateTimeFormat('en-US', {
-		hour12: false,
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
-		timeZone: 'Asia/Dubai', // UAE Timezone
-	}).format(now);
-	// Set seconds to 00
-	return uaeTime.substring(0, 5) + ':00'; // "HH:mm:ss"
+	return moment().tz('Asia/Dubai').format('HH:mm') + ':00'; // "HH:mm:ss"
 };
 
 export default function App() {
