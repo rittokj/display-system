@@ -9,21 +9,6 @@ const headers = {
 	'X-Api-Key': process.env.EXPO_PUBLIC_API_KEY,
 };
 
-const isCurrentTimeBetween = (fromTime: string, toTime: string) => {
-	// Get the current date and time
-	const now = new Date();
-	// Split the time strings into hours, minutes, and seconds
-	const [fromHour, fromMinute, fromSecond] = fromTime.split(':').map(Number);
-	const [toHour, toMinute, toSecond] = toTime.split(':').map(Number);
-	// Create Date objects for the fromTime and toTime
-	const fromDateTime = new Date();
-	fromDateTime.setHours(fromHour, fromMinute, fromSecond, 0);
-	const toDateTime = new Date();
-	toDateTime.setHours(toHour, toMinute, toSecond, 0);
-	// Check if current time is between the fromTime and toTime
-	return now >= fromDateTime && now <= toDateTime;
-};
-
 const getCurrentTimeSpan = () => {
 	return moment().tz('Asia/Dubai').format('HH:mm') + ':00'; // "HH:mm:ss"
 };
@@ -73,16 +58,8 @@ export default function App() {
 				throw new Error(`HTTP error! status: ${status}`);
 			} else {
 				if (data.scheduleStatus === 1) {
-					if (
-						data?.fromTime &&
-						data?.toTime &&
-						isCurrentTimeBetween(data?.fromTime, data?.toTime)
-					) {
-						setConnected(true);
-						setDefaultScreen(false);
-					} else {
-						setDefaultScreen(true);
-					}
+					setConnected(true);
+					setDefaultScreen(false);
 				} else if (data.scheduleStatus === 2) {
 					setConnected(false);
 					setDoctorData(null);
@@ -103,12 +80,12 @@ export default function App() {
 				await SecureStore.setItemAsync(
 					'hospitalDetails',
 					JSON.stringify({
-						helpEmail: data?.helpEmail,
-						helpPhone: data?.helpPhone,
-						hospitalName: data?.hospitalName,
-						bgColour: data?.bgColour,
-						hospitalWebSite: data?.hospitalWebSite,
-						roomName: data?.roomName,
+						helpEmail: data?.helpEmail || '',
+						helpPhone: data?.helpPhone || '',
+						hospitalName: data?.hospitalName || '',
+						bgColour: data?.bgColour || '',
+						hospitalWebSite: data?.hospitalWebSite || '',
+						roomName: data?.roomName || '',
 					})
 				);
 				setDoctorData(data);
@@ -293,14 +270,14 @@ export default function App() {
 								lineHeight: 24,
 								letterSpacing: 0.5,
 							}}>
-							{hospitalDetails.hospitalWebSite}
+							{hospitalDetails?.hospitalWebSite || ''}
 						</Text>
 					</View>
 				</View>
 			</View>
 			<View style={styles.rightSection}>
 				<Image
-					source={{ uri: doctorData.photoUrl }}
+					source={{ uri: doctorData?.photoUrl || '' }}
 					style={styles.image}
 				/>
 			</View>
