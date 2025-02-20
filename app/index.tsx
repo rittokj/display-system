@@ -6,7 +6,7 @@ import React, {
 	useCallback,
 	useMemo,
 } from 'react';
-import { StyleSheet, Text, View, Image, Alert } from 'react-native';
+import { StyleSheet, Text, View, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import moment from 'moment-timezone';
 
@@ -292,12 +292,6 @@ export default function App() {
 
 	useEffect(() => {
 		if (!deviceId) return;
-
-		Alert.alert(
-			`${
-				process.env.EXPO_PUBLIC_BASE_URL
-			}?deviceCode=${deviceId}&currentTime=${getCurrentTimeSpan()}`
-		);
 	}, [deviceId]);
 
 	const renderDigitBoxes = useMemo(
