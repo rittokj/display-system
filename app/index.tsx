@@ -6,130 +6,16 @@ import React, {
 	useCallback,
 	useMemo,
 } from 'react';
-import { StyleSheet, Text, View, Image } from 'react-native';
+import { Text, View, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import moment from 'moment-timezone';
+import styles from './styles';
+import { Video } from 'expo-av';
 
 const headers = {
 	'Content-Type': 'application/json',
 	'X-Api-Key': process.env.EXPO_PUBLIC_API_KEY,
 };
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		flexDirection: 'row',
-		backgroundColor: '#fff',
-	},
-	leftSection: {
-		flex: 1,
-		justifyContent: 'center',
-		backgroundColor: '#0090FF',
-	},
-	rightSection: {
-		width: '40%',
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	bgImage: {
-		transform: [{ rotate: '-10deg' }],
-		position: 'absolute',
-		width: '240%',
-		height: '120%',
-		left: -60,
-		top: 10,
-		objectFit: 'fill',
-	},
-	image: {
-		width: '100%',
-		height: '100%',
-		resizeMode: 'cover',
-	},
-	defaultImageContainer: {
-		flex: 1,
-		flexDirection: 'row',
-		backgroundColor: '#000',
-	},
-	defaultImage: {
-		width: '100%',
-		height: '100%',
-		resizeMode: 'contain',
-	},
-	unoccupiedContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	centralizedContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-		backgroundColor: '#000',
-		padding: 40,
-		position: 'relative',
-	},
-	errorContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		backgroundColor: '#000',
-		padding: 40,
-		position: 'relative',
-	},
-	optTitle: {
-		fontSize: 40,
-		fontWeight: 'bold',
-		marginBottom: 16,
-		fontFamily: 'InterBold',
-		color: '#fff',
-	},
-	optSubtitle: {
-		fontSize: 24,
-		textAlign: 'center',
-		marginBottom: 32,
-		maxWidth: 400,
-		color: '#FFF',
-		fontFamily: 'InterLight',
-	},
-	lightText: {
-		fontSize: 24,
-		color: '#FFF',
-		fontFamily: 'InterLight',
-	},
-	title: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		marginBottom: 16,
-		fontFamily: 'InterBold',
-	},
-	subtitle: {
-		fontSize: 16,
-		textAlign: 'center',
-		marginBottom: 32,
-		maxWidth: 300,
-		color: '#666',
-		fontFamily: 'Inter',
-	},
-	codeContainer: {
-		flexDirection: 'row',
-		justifyContent: 'center',
-		gap: 8,
-	},
-	digitBox: {
-		width: 90,
-		height: 90,
-		borderRadius: 12,
-		backgroundColor: '#111',
-		justifyContent: 'center',
-		alignItems: 'center',
-		borderWidth: 1,
-		borderColor: '#E0E0E0',
-	},
-	digit: {
-		fontSize: 50,
-		fontFamily: 'Inter',
-		color: '#fff',
-	},
-});
 
 const getContainerStyle = (bgColor?: string) => ({
 	backgroundColor: bgColor || '#0090FF',
@@ -140,6 +26,7 @@ interface DoctorData {
 	department?: string;
 	timing?: string;
 	photoUrl?: string;
+	mediaUrl?: string;
 	bgColor?: string;
 	scheduleStatus?: number;
 }
@@ -150,6 +37,22 @@ interface HospitalDetails {
 	helpPhone?: string;
 	hospitalWebSite?: string;
 }
+
+const isVideoUrl = (url: string) => {
+	const videoExtensions = [
+		'.mp4', // Most widely used, supports high quality and compression.
+		'.avi', // Uncompressed or compressed video, large file size.
+		'.mkv', // Supports multiple audio and subtitle tracks.
+		'.mov', // Apple QuickTime format, high quality.
+		'.wmv', // Windows Media Video, smaller file sizes.
+		'.flv', // Flash Video, used for web streaming.
+		'.webm', // Optimized for web use, open-source.
+		'.mpeg', // Older format, still in use.
+		'.3gp', // Mobile-friendly format.
+		'.ogv', // Open-source, used for web videos.
+	];
+	return videoExtensions.some((ext) => url.toLowerCase().endsWith(ext));
+};
 
 export default function App() {
 	const [appState, setAppState] = useState({
@@ -200,13 +103,12 @@ export default function App() {
 			}
 
 			const { data, status } = response;
-
 			setAppState((prev) => {
 				const newState = {
 					...prev,
 					connected: data.scheduleStatus === 1,
-					defaultScreen: data.scheduleStatus === 3,
-					error: data.scheduleStatus === 3 || data.scheduleStatus === 4,
+					defaultScreen: data.scheduleStatus === 3 || data?.isDoctor === false,
+					error: data.scheduleStatus === 4,
 				};
 				return newState;
 			});
@@ -283,7 +185,7 @@ export default function App() {
 		}
 
 		// intervalRef.current = setInterval(fetchData, 60000);
-		intervalRef.current = setInterval(fetchData, 10000);
+		intervalRef.current = setInterval(fetchData, 5000);
 
 		return () => {
 			if (intervalRef.current) clearInterval(intervalRef.current);
@@ -317,9 +219,25 @@ export default function App() {
 	if (appState.defaultScreen) {
 		return (
 			<View style={styles.defaultImageContainer}>
-				<Image
-					source={require('../assets/images/default.jpeg')}
-					style={styles.defaultImage}></Image>
+				{doctorData?.mediaUrl ? (
+					isVideoUrl(doctorData.mediaUrl) ? (
+						<Video
+							source={{
+								uri: doctorData.mediaUrl,
+							}}
+							style={styles.defaultVideo}
+							shouldPlay
+							isLooping
+							resizeMode='contain'
+						/>
+					) : (
+						<Image
+							source={{ uri: doctorData.mediaUrl }}
+							style={styles.defaultImage}
+							resizeMode='contain'
+						/>
+					)
+				) : null}
 			</View>
 		);
 	}
@@ -396,7 +314,8 @@ export default function App() {
 				style={[styles.leftSection, getContainerStyle(doctorData?.bgColor)]}>
 				<Image
 					source={require('../assets/images/line.png')}
-					style={styles.bgImage}></Image>
+					style={styles.bgImage}
+				/>
 				<View
 					style={{
 						flex: 1,
