@@ -11,6 +11,7 @@ import * as SecureStore from 'expo-secure-store';
 import moment from 'moment-timezone';
 import styles from './styles';
 import { Video } from 'expo-av';
+import useNetworkStatus from '@/hooks/useNetworkStatus';
 
 const headers = {
 	'Content-Type': 'application/json',
@@ -60,6 +61,7 @@ export default function App() {
 		defaultScreen: false,
 		error: false,
 	});
+	const { isConnectedRef } = useNetworkStatus();
 
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [doctorData, setDoctorData] = useState<DoctorData | null>(null);
@@ -77,64 +79,67 @@ export default function App() {
 	}, [timeFormat]);
 
 	const fetchData = useCallback(async () => {
-		if (abortControllerRef.current) {
-			abortControllerRef.current.abort();
-		}
-		abortControllerRef.current = new AbortController();
-
-		try {
-			const dId = deviceIdRef.current;
-			if (!dId) {
-				console.log('No device ID found');
-				return;
+		if (isConnectedRef?.current) {
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
 			}
+			abortControllerRef.current = new AbortController();
 
-			const hospital = await SecureStore.getItemAsync('hospitalDetails');
-			const currentTime = getCurrentTimeSpan();
-			const url = `${process.env.EXPO_PUBLIC_BASE_URL}?deviceCode=${dId}&currentTime=${currentTime}`;
+			try {
+				const dId = deviceIdRef.current;
+				if (!dId) {
+					console.log('No device ID found');
+					return;
+				}
 
-			const response = await axios.get(url, {
-				headers,
-				signal: abortControllerRef.current.signal,
-			});
+				const hospital = await SecureStore.getItemAsync('hospitalDetails');
+				const currentTime = getCurrentTimeSpan();
+				const url = `${process.env.EXPO_PUBLIC_BASE_URL}?deviceCode=${dId}&currentTime=${currentTime}`;
 
-			if (response.status !== 200) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
+				const response = await axios.get(url, {
+					headers,
+					signal: abortControllerRef.current.signal,
+				});
 
-			const { data, status } = response;
-			setAppState((prev) => {
-				const newState = {
-					...prev,
-					connected: data.scheduleStatus === 1,
-					defaultScreen: data.scheduleStatus === 3 || data?.isDoctor === false,
-					error: data.scheduleStatus === 4,
-				};
-				return newState;
-			});
+				if (response.status !== 200) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
 
-			setDoctorData(data.scheduleStatus === 1 ? data : null);
+				const { data, status } = response;
+				setAppState((prev) => {
+					const newState = {
+						...prev,
+						connected: data.scheduleStatus === 1,
+						defaultScreen:
+							data.scheduleStatus === 3 || data?.isDoctor === false,
+						error: data.scheduleStatus === 4,
+					};
+					return newState;
+				});
 
-			if (!hospital || JSON.stringify(data) !== hospital) {
-				const newHospitalDetails: HospitalDetails = {
-					helpEmail: data?.helpEmail || '',
-					helpPhone: data?.helpPhone || '',
-					hospitalName: data?.hospitalName || '',
-					hospitalWebSite: data?.hospitalWebSite || '',
-				};
+				setDoctorData(data.scheduleStatus === 1 ? data : null);
 
-				await SecureStore.setItemAsync(
-					'hospitalDetails',
-					JSON.stringify(newHospitalDetails)
-				);
-				setHospitalDetails(newHospitalDetails);
-			}
-		} catch (err) {
-			if (!axios.isCancel(err)) {
-				setAppState((prev) => ({
-					...prev,
-					error: true,
-				}));
+				if (!hospital || JSON.stringify(data) !== hospital) {
+					const newHospitalDetails: HospitalDetails = {
+						helpEmail: data?.helpEmail || '',
+						helpPhone: data?.helpPhone || '',
+						hospitalName: data?.hospitalName || '',
+						hospitalWebSite: data?.hospitalWebSite || '',
+					};
+
+					await SecureStore.setItemAsync(
+						'hospitalDetails',
+						JSON.stringify(newHospitalDetails)
+					);
+					setHospitalDetails(newHospitalDetails);
+				}
+			} catch (err) {
+				if (!axios.isCancel(err)) {
+					setAppState((prev) => ({
+						...prev,
+						error: true,
+					}));
+				}
 			}
 		}
 	}, [getCurrentTimeSpan]);
