@@ -228,7 +228,7 @@ export default function App() {
 					isVideoUrl(doctorData.mediaUrl) ? (
 						<Video
 							source={{
-								uri: doctorData.mediaUrl,
+								uri: `${process.env.EXPO_PUBLIC_IMAGE_URL}${doctorData.mediaUrl}`,
 							}}
 							style={styles.defaultVideo}
 							shouldPlay
@@ -237,7 +237,9 @@ export default function App() {
 						/>
 					) : (
 						<Image
-							source={{ uri: doctorData.mediaUrl }}
+							source={{
+								uri: `${process.env.EXPO_PUBLIC_IMAGE_URL}${doctorData.mediaUrl}`,
+							}}
 							style={styles.defaultImage}
 							resizeMode='contain'
 						/>
