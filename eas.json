@@ -14,14 +14,14 @@
 			},
 			"env": {
 				"EXPO_PUBLIC_BASE_URL": "http://10.255.254.240/dsapi/api/ScreenSchedule/GetScheduleDetailByDevice",
-				"EXPO_PUBLIC_IMAGE_URL": "http://64.227.148.163:81/imagepath/",
+				"EXPO_PUBLIC_IMAGE_URL": "http://10.255.254.240/dsapi/mediafile/",
 				"EXPO_PUBLIC_API_KEY": "12345ABCDE67890FGHIJ"
 			}
 		},
 		"production": {
 			"env": {
 				"EXPO_PUBLIC_BASE_URL": "http://10.255.254.240/dsapi/api/ScreenSchedule/GetScheduleDetailByDevice",
-				"EXPO_PUBLIC_IMAGE_URL": "http://64.227.148.163:81/imagepath/",
+				"EXPO_PUBLIC_IMAGE_URL": "http://10.255.254.240/dsapi/mediafile/",
 				"EXPO_PUBLIC_API_KEY": "12345ABCDE67890FGHIJ"
 			}
 		}
