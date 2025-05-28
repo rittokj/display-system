@@ -78,6 +78,14 @@ export default function App() {
 		return moment().tz('Asia/Dubai').format(timeFormat) + ':00';
 	}, [timeFormat]);
 
+	const storeDoctorData = useCallback(async (data: DoctorData) => {
+		try {
+			await SecureStore.setItemAsync('lastDoctorData', JSON.stringify(data));
+		} catch (error) {
+			console.log('Error storing doctor data:', error);
+		}
+	}, []);
+
 	const fetchData = useCallback(async () => {
 		if (isConnectedRef?.current) {
 			if (abortControllerRef.current) {
@@ -117,7 +125,10 @@ export default function App() {
 					return newState;
 				});
 
-				setDoctorData(data.scheduleStatus === 1 ? data : null);
+				if (data.scheduleStatus === 1) {
+					setDoctorData(data);
+					await storeDoctorData(data);
+				}
 
 				if (!hospital || JSON.stringify(data) !== hospital) {
 					const newHospitalDetails: HospitalDetails = {
@@ -135,14 +146,35 @@ export default function App() {
 				}
 			} catch (err) {
 				if (!axios.isCancel(err)) {
-					setAppState((prev) => ({
-						...prev,
-						error: true,
-					}));
+					// Try to load last known doctor data when server is down
+					try {
+						const lastDoctorData = await SecureStore.getItemAsync(
+							'lastDoctorData'
+						);
+						if (lastDoctorData) {
+							const parsedData = JSON.parse(lastDoctorData);
+							setDoctorData(parsedData);
+							setAppState((prev) => ({
+								...prev,
+								error: false, // Don't show error screen if we have cached data
+							}));
+						} else {
+							setAppState((prev) => ({
+								...prev,
+								error: true,
+							}));
+						}
+					} catch (storageError) {
+						console.log('Error loading cached doctor data:', storageError);
+						setAppState((prev) => ({
+							...prev,
+							error: true,
+						}));
+					}
 				}
 			}
 		}
-	}, [getCurrentTimeSpan]);
+	}, [getCurrentTimeSpan, storeDoctorData]);
 
 	const initializeDevice = useCallback(async () => {
 		try {
@@ -189,7 +221,6 @@ export default function App() {
 			clearInterval(intervalRef.current);
 		}
 
-		// intervalRef.current = setInterval(fetchData, 60000);
 		intervalRef.current = setInterval(fetchData, 5000);
 
 		return () => {
